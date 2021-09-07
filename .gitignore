@@ -1,0 +1,4 @@
+.idea/
+target/
+minidb.data
+minidb.data.merge
