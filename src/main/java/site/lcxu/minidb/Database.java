@@ -2,31 +2,38 @@ package site.lcxu.minidb;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+/**
+ * @author licheng_xu
+ * @date 2021/9/8
+ */
 public class Database {
     /**
      * 内存中的索引信息
      */
-    private Map<String, Long> indexes;
+    private final Map<String, Long> indexes;
 
     /**
      * 数据文件
      */
-    private DBFile dbFile;
+    private DbFile dbFile;
 
     /**
      * 数据目录
      */
-    private String dirPath;
+    private final String dirPath;
 
     /**
      * 读写锁
      */
-    private ReadWriteLock lock;
+    private final ReadWriteLock lock;
 
     public Database(String dirPath) throws Exception {
         File dir = new File(dirPath);
@@ -34,8 +41,7 @@ public class Database {
             throw new Exception("Can't create the directory!");
         }
 
-        this.dbFile = new DBFile(dirPath, false);
-        this.indexes = new HashMap<>();
+        this.dbFile = new DbFile(dirPath, false);
         this.dirPath = dirPath;
 
         this.indexes = new HashMap<>();
@@ -44,7 +50,7 @@ public class Database {
         this.lock = new ReentrantReadWriteLock();
     }
 
-    private void loadIndexesFromFile(DBFile dbFile) throws Exception {
+    private void loadIndexesFromFile(DbFile dbFile) throws Exception {
         if (dbFile == null) {
             return;
         }
@@ -60,8 +66,8 @@ public class Database {
                 }
                 throw e;
             }
-            if (entry.mark == Entry.PUT) {
-                indexes.put(Arrays.toString(entry.key), offset);
+            if (entry.getMark() == Entry.PUT) {
+                indexes.put(Arrays.toString(entry.getKey()), offset);
             }
             offset += entry.getSize();
         }
@@ -84,7 +90,7 @@ public class Database {
                 }
                 throw e;
             }
-            Long off = this.indexes.get(Arrays.toString(entry.key));
+            Long off = this.indexes.get(Arrays.toString(entry.getKey()));
             if (off != null && off == offset) {
                 validEntries.add(entry);
             }
@@ -92,15 +98,15 @@ public class Database {
         }
 
         if (validEntries.size() > 0) {
-            DBFile mergeDBFile = new DBFile(this.dirPath, true);
+            DbFile mergeDbFile = new DbFile(this.dirPath, true);
             for (Entry entry : validEntries) {
-                long writeOff = mergeDBFile.offset;
-                mergeDBFile.write(entry);
-                this.indexes.put(Arrays.toString(entry.key), writeOff);
+                long writeOff = mergeDbFile.offset;
+                mergeDbFile.write(entry);
+                this.indexes.put(Arrays.toString(entry.getKey()), writeOff);
             }
             this.dbFile.file.delete();
-            mergeDBFile.file.renameTo(this.dbFile.file);
-            this.dbFile = mergeDBFile;
+            mergeDbFile.file.renameTo(this.dbFile.file);
+            this.dbFile = mergeDbFile;
         }
 
     }
@@ -131,7 +137,7 @@ public class Database {
             long offset = this.indexes.get(Arrays.toString(key));
             Entry entry = this.dbFile.read(offset);
             if (entry != null) {
-                return entry.value;
+                return entry.getValue();
             }
             return null;
         } finally {

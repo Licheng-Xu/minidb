@@ -1,17 +1,23 @@
 package site.lcxu.minidb;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Objects;
 
+/**
+ * @author licheng_xu
+ * @date 2021/9/8
+ */
 public class Entry {
     public static final short PUT = 0;
     public static final short DEL = 1;
     public static final int ENTRY_HEADER_SIZE = 10;
 
-    public byte[] key;
-    public byte[] value;
-    public int keySize;
-    public int valueSize;
-    public short mark;
+    private byte[] key;
+    private byte[] value;
+    private int keySize;
+    private int valueSize;
+    private short mark;
 
     public Entry(int keySize, int valueSize, short mark) {
         this.key = new byte[keySize];
@@ -29,46 +35,100 @@ public class Entry {
         this.mark = mark;
     }
 
-    @Override
-    public String toString() {
-        return "Entry{" +
-                "key=" + Arrays.toString(key) +
-                ", value=" + Arrays.toString(value) +
-                ", keySize=" + keySize +
-                ", valueSize=" + valueSize +
-                ", mark=" + mark +
-                '}';
-    }
-
-    // 这里有个妥协，java 数组长度限制为 int32，如果返回 long 就不能编码成 byte 数组了
     public int getSize() {
         return ENTRY_HEADER_SIZE + keySize + valueSize;
     }
 
     public byte[] encode() {
-        byte[] buf = new byte[this.getSize()];
-        Utils.intToBytes(keySize, buf, 0);
-        Utils.intToBytes(valueSize, buf, 4);
-        Utils.shortToBytes(mark, buf, 8);
-        System.arraycopy(key, 0, buf, 10, keySize);
-        System.arraycopy(value, 0, buf, 10 + keySize, valueSize);
-        return buf;
+        ByteBuffer byteBuffer = ByteBuffer.allocate(this.getSize());
+        byteBuffer.putInt(keySize);
+        byteBuffer.putInt(valueSize);
+        byteBuffer.putShort(mark);
+        byteBuffer.put(key);
+        byteBuffer.put(value);
+        return byteBuffer.array();
     }
 
-    public static Entry decode(byte[] buf) {
-        int keySize = Utils.bytesToInt(buf, 0);
-        int valueSize = Utils.bytesToInt(buf, 4);
-        short mark = Utils.bytesToShort(buf, 8);
+    public static Entry decode(byte[] bytes) {
+        if (bytes == null) {
+            throw new IllegalArgumentException("Input buffer cannot be null");
+        }
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        int keySize = byteBuffer.getInt();
+        int valueSize = byteBuffer.getInt();
+        short mark = byteBuffer.getShort();
+        byte[] key = new byte[keySize];
+        byteBuffer.get(key);
+        byte[] value = new byte[valueSize];
+        byteBuffer.get(value);
+        return new Entry(key, value, mark);
+    }
+
+    public static Entry decodeHeader(byte[] header) {
+        if (header == null) {
+            throw new IllegalArgumentException("Input buffer cannot be null");
+        }
+        ByteBuffer byteBuffer = ByteBuffer.wrap(header);
+        int keySize = byteBuffer.getInt();
+        int valueSize = byteBuffer.getInt();
+        short mark = byteBuffer.getShort();
         return new Entry(keySize, valueSize, mark);
     }
 
-    public static void main(String[] args) {
-        byte[] key = {1, 2};
-        byte[] value = {4, 5, 6};
-        Entry entry = new Entry(key, value, (short) 1);
-        byte[] encoded = entry.encode();
-        System.out.println(Arrays.toString(encoded));
-        Entry entryCopy = decode(encoded);
-        System.out.println(entryCopy);
+    // override object method
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Entry entry = (Entry) o;
+        return keySize == entry.keySize && valueSize == entry.valueSize && mark == entry.mark && Arrays.equals(key, entry.key) && Arrays.equals(value, entry.value);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(keySize, valueSize, mark);
+        result = 31 * result + Arrays.hashCode(key);
+        result = 31 * result + Arrays.hashCode(value);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "Entry{" + "key=" + Arrays.toString(key) + ", value=" + Arrays.toString(value) + ", keySize=" + keySize + ", valueSize=" + valueSize + ", mark=" + mark + '}';
+    }
+
+    // getter and setter
+
+    public byte[] getKey() {
+        return key;
+    }
+
+    public void setKey(byte[] key) {
+        this.key = key;
+    }
+
+    public byte[] getValue() {
+        return value;
+    }
+
+    public void setValue(byte[] value) {
+        this.value = value;
+    }
+
+    public int getKeySize() {
+        return keySize;
+    }
+
+    public int getValueSize() {
+        return valueSize;
+    }
+
+    public short getMark() {
+        return mark;
     }
 }

@@ -1,25 +1,34 @@
 package site.lcxu.minidb;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.logging.Logger;
 
-public class DBFile {
+/**
+ * @author licheng_xu
+ * @date 2021/9/8
+ */
+public class DbFile {
     public static final String FILE_NAME = "minidb.data";
     public static final String MERGE_FILE_NAME = "minidb.data.merge";
 
+    private final Logger logger = Logger.getLogger(getClass().getName());
 
     public File file;
     public long offset;
 
-    private DBFile(String fileName) throws IOException {
+    private DbFile(String fileName) throws IOException {
         File file = new File(fileName);
-        if (!file.exists()) {
-            file.createNewFile();
+        if (!file.createNewFile()) {
+            logger.warning("db file is already existed.");
         }
         this.file = file;
         this.offset = (int) file.length();
     }
 
-    public DBFile(String path, boolean isMergeFile) throws IOException {
+    public DbFile(String path, boolean isMergeFile) throws IOException {
         this(path + File.separator + (isMergeFile ? MERGE_FILE_NAME : FILE_NAME));
     }
 
@@ -31,22 +40,22 @@ public class DBFile {
             // 读取到文件末尾
             throw new IndexOutOfBoundsException();
         }
-        Entry entry = Entry.decode(buf);
+        Entry entry = Entry.decodeHeader(buf);
 
         offset += Entry.ENTRY_HEADER_SIZE;
-        if (entry.keySize > 0) {
-            byte[] key = new byte[entry.keySize];
+        if (entry.getKeySize() > 0) {
+            byte[] key = new byte[entry.getKeySize()];
             randomAccessFile.seek(offset);
             randomAccessFile.read(key);
-            entry.key = key;
+            entry.setKey(key);
         }
 
-        offset += entry.keySize;
-        if (entry.valueSize > 0) {
-            byte[] value = new byte[entry.valueSize];
+        offset += entry.getKeySize();
+        if (entry.getValueSize() > 0) {
+            byte[] value = new byte[entry.getValueSize()];
             randomAccessFile.seek(offset);
             randomAccessFile.read(value);
-            entry.value = value;
+            entry.setValue(value);
         }
 
         randomAccessFile.close();
